@@ -82,7 +82,7 @@ class PageFooterRule(BaseRule):
             else:
                 footer_para = section.footer.paragraphs[0]
             
-            footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            footer_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             
             # 插入：[PAGE] / [NUMPAGES]
             run_page = footer_para.add_run()
