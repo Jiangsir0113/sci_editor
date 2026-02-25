@@ -43,6 +43,13 @@ class AbbreviationEnhancedRule(BaseRule):
                 defs[a] = f.strip()
         return defs
 
+    # 学术常用缩写白名单 (豁免 3 次频次限制)
+    COMMON_ABBRS = {
+        "DNA", "RNA", "PCR", "AIDS", "HIV", "CT", "MRI", "ECG", "EEG", "pH", 
+        "mRNA", "siRNA", "tRNA", "ATP", "ADP", "AMP", "cAMP", "CD4", "CD8", 
+        "IgG", "IgM", "IgA", "IgE", "TNF", "IL", "IFN", "TGF", "MAPK", "NF-κB"
+    }
+
     def check(self, doc: DocumentStructure) -> List[Issue]:
         issues = []
         global_defs = self._collect_global_defs(doc)
@@ -55,10 +62,7 @@ class AbbreviationEnhancedRule(BaseRule):
             
             text = section.raw_text
             for abbr, full in global_defs.items():
-                # 计算总频次：缩写出现次数 + 全称（非定义处）出现次数
-                # 简化逻辑：直接看整个 text 中缩写出现的次数 + 定义外全称出现的次数
-                
-                # 1. 查找所有定义
+                # 1. 查找所有定义 (Full Name (ABBR))
                 def_pattern = re.compile(re.escape(full) + r"\s*\(" + re.escape(abbr) + r"\)", re.IGNORECASE)
                 defs_in_sec = list(def_pattern.finditer(text))
                 
@@ -70,45 +74,44 @@ class AbbreviationEnhancedRule(BaseRule):
                 full_pattern = re.compile(r"\b" + re.escape(full) + r"\b", re.IGNORECASE)
                 fulls_in_sec = list(full_pattern.finditer(text))
                 
-                # 排除定义中的全称
-                standalone_fulls = []
-                for f_match in fulls_in_sec:
-                    is_in_def = False
-                    for d_match in defs_in_sec:
-                        if d_match.start() <= f_match.start() < d_match.end():
-                            is_in_def = True
-                            break
-                    if not is_in_def:
-                        standalone_fulls.append(f_match)
-
-                # 总有效频次 = 定义次数 + 独立缩写次数（排除掉定义里的缩写部分）+ 独立全称次数
-                # 这里缩写次数匹配到的可能是定义里的 (ABBR)
+                # 排除定义中的全称和缩写
                 actual_abbr_count = 0
                 for a_match in abbrs_in_sec:
-                    is_in_def = False
-                    for d_match in defs_in_sec:
-                        if d_match.start() <= a_match.start() < d_match.end():
-                            is_in_def = True
-                            break
-                    if not is_in_def:
+                    if not any(d.start() <= a_match.start() < d.end() for d in defs_in_sec):
                         actual_abbr_count += 1
                 
+                standalone_fulls = []
+                for f_match in fulls_in_sec:
+                    if not any(d.start() <= f_match.start() < d.end() for d in defs_in_sec):
+                        standalone_fulls.append(f_match)
+
+                # 总有效频次 = 定义次数 + 独立缩写次数 + 独立全称次数
                 total_freq = len(defs_in_sec) + actual_abbr_count + len(standalone_fulls)
                 
                 if total_freq == 0: continue
 
+                # --- 科学性改进逻辑 ---
+                # 1. 白名单豁免：常用词不强制转回全称
+                if abbr in self.COMMON_ABBRS:
+                    continue
+                
+                # 2. 人工定义保护：如果作者手动写了 Full Name (ABBR) 定义，
+                # 即使频次 < 3，我们也认为作者在该区段需要此缩写，予以保留。
+                if len(defs_in_sec) > 0 and total_freq < 3:
+                    continue
+
                 if total_freq < 3:
-                    # 应该全部使用全称，并移除定义
+                    # 应该全部使用全称，并移除定义 (仅针对那些“无定义但用了缩写”或“频次过低且无必要”的情况)
                     if len(defs_in_sec) > 0 or actual_abbr_count > 0:
                         issues.append(Issue(
                             rule_id=self.rule_id,
                             rule_name=self.rule_name,
                             severity=Severity.INFO,
-                            message=f"术语 '{abbr}' 在{label}中仅出现 {total_freq} 次，不应使用缩写，应统一为全称",
+                            message=f"术语 '{abbr}' 在{label}中仅出现 {total_freq} 次，且非公认常用缩写，建议统一为全称",
                             section=self.section_name,
                             context=f"{abbr} (freq={total_freq})",
                             fixable=True,
-                            paragraph_index=-1 # 会在 fix 中处理全区段
+                            paragraph_index=-1
                         ))
                 else:
                     # 应该：第一处定义，后续缩写
