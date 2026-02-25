@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>科学编辑检查报告</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; background: #f0f2f5; color: #333; padding: 20px; }
+.container { max-width: 960px; margin: 0 auto; }
+h1 { text-align: center; color: #1a73e8; margin-bottom: 8px; font-size: 24px; }
+.meta { text-align: center; color: #888; margin-bottom: 24px; font-size: 14px; }
+.summary { display: flex; gap: 16px; margin-bottom: 24px; }
+.summary-card { flex: 1; background: #fff; border-radius: 10px; padding: 16px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.summary-card .num { font-size: 32px; font-weight: 700; }
+.summary-card .label { font-size: 13px; color: #888; margin-top: 4px; }
+.error .num { color: #e53935; }
+.warning .num { color: #fb8c00; }
+.info .num { color: #1e88e5; }
+.fixed .num { color: #43a047; }
+.section { background: #fff; border-radius: 10px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+.section-header { padding: 14px 20px; font-weight: 600; font-size: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fafafa; border-bottom: 1px solid #eee; }
+.section-header:hover { background: #f5f5f5; }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: #fff; }
+.badge-error { background: #e53935; }
+.badge-warning { background: #fb8c00; }
+.badge-info { background: #1e88e5; }
+.issue-list { padding: 0; }
+.issue { padding: 12px 20px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 12px; align-items: flex-start; }
+.issue:last-child { border-bottom: none; }
+.severity { min-width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; flex-shrink: 0; margin-top: 2px; }
+.severity-error { background: #e53935; }
+.severity-warning { background: #fb8c00; }
+.severity-info { background: #1e88e5; }
+.severity-fixed { background: #43a047; }
+.issue-body { flex: 1; }
+.issue-rule { font-weight: 600; font-size: 13px; color: #555; }
+.issue-msg { margin-top: 4px; font-size: 14px; }
+.issue-ctx { margin-top: 6px; background: #f8f9fa; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: #666; font-family: 'Consolas', monospace; word-break: break-all; }
+.issue-fix { margin-top: 4px; font-size: 13px; color: #43a047; }
+.no-issues { text-align: center; padding: 40px; color: #aaa; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📝 科学编辑检查报告</h1>
+  <p class="meta">文件: {{ filename }} &nbsp;|&nbsp; 生成时间: {{ timestamp }}</p>
+  <div class="summary">
+    <div class="summary-card error"><div class="num">{{ error_count }}</div><div class="label">❌ 错误</div></div>
+    <div class="summary-card warning"><div class="num">{{ warning_count }}</div><div class="label">⚠️ 警告</div></div>
+    <div class="summary-card info"><div class="num">{{ info_count }}</div><div class="label">ℹ️ 提示</div></div>
+    <div class="summary-card fixed"><div class="num">{{ fixed_count }}</div><div class="label">✅ 已修复</div></div>
+  </div>
+
+  {% for section_name, issues in sections.items() %}
+  <div class="section">
+    <div class="section-header" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+      <span>{{ section_name }}</span>
+      <span>
+        {% set ns = namespace(e=0, w=0, i=0) %}
+        {% for issue in issues %}
+          {% if issue.severity.value == 'error' %}{% set ns.e = ns.e + 1 %}
+          {% elif issue.severity.value == 'warning' %}{% set ns.w = ns.w + 1 %}
+          {% else %}{% set ns.i = ns.i + 1 %}{% endif %}
+        {% endfor %}
+        {% if ns.e > 0 %}<span class="badge badge-error">{{ ns.e }}</span>{% endif %}
+        {% if ns.w > 0 %}<span class="badge badge-warning">{{ ns.w }}</span>{% endif %}
+        {% if ns.i > 0 %}<span class="badge badge-info">{{ ns.i }}</span>{% endif %}
+      </span>
+    </div>
+    <div class="issue-list">
+      {% for issue in issues %}
+      <div class="issue">
+        <div class="severity severity-{{ 'fixed' if issue.fixed else issue.severity.value }}">
+          {% if issue.fixed %}✓{% elif issue.severity.value == 'error' %}✕{% elif issue.severity.value == 'warning' %}!{% else %}i{% endif %}
+        </div>
+        <div class="issue-body">
+          <div class="issue-rule">{{ issue.rule_id }}</div>
+          <div class="issue-msg">{{ issue.message }}</div>
+          {% if issue.context %}<div class="issue-ctx">{{ issue.context }}</div>{% endif %}
+          {% if issue.fixed %}<div class="issue-fix">✅ 已自动修复{{ ': ' + issue.fix_description if issue.fix_description else '' }}</div>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if not sections %}
+  <div class="no-issues">🎉 恭喜！未发现任何问题。</div>
+  {% endif %}
+</div>
+</body>
+</html>
