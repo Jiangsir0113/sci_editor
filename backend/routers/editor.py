@@ -10,7 +10,9 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from sci_editor.parser import parse_document
 from sci_editor.engine import RuleEngine
 from backend.session import create_session, session_path, get_session, delete_session
-from backend.schemas import UploadResponse, ParagraphOut
+import uuid as _uuid
+from backend.schemas import UploadResponse, ParagraphOut, CheckRequest, CheckResponse, IssueOut, DiffEntry
+from backend.diff import build_diff
 
 router = APIRouter(prefix="/api")
 _engine = RuleEngine()
@@ -64,3 +66,38 @@ async def upload(file: UploadFile = File(...)):
         paragraphs=paragraphs,
         available_rules=RULE_MODULES,
     )
+
+
+@router.post("/check", response_model=CheckResponse)
+async def check(req: CheckRequest):
+    try:
+        session = get_session(req.doc_id)
+    except KeyError:
+        raise HTTPException(404, f"Session {req.doc_id} not found")
+
+    doc = session.get("doc")
+    if doc is None:
+        raise HTTPException(500, "Document not parsed in session")
+
+    issues = _engine.check(doc, rule_filter=req.rule_filter)
+
+    issues_out = []
+    for issue in issues:
+        issue_id = str(_uuid.uuid4())
+        issues_out.append(IssueOut(
+            issue_id=issue_id,
+            rule_id=issue.rule_id,
+            rule_name=issue.rule_name,
+            severity=issue.severity.value,
+            section=issue.section,
+            paragraph_index=issue.paragraph_index,
+            context=issue.context,
+            suggestion=issue.suggestion,
+            fixable=issue.fixable,
+            fix_description=issue.fix_description,
+        ))
+
+    diff_raw = build_diff(doc, issues)
+    diff_out = [DiffEntry(**d) for d in diff_raw]
+
+    return CheckResponse(issues=issues_out, diff=diff_out)
