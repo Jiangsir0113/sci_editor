@@ -1,8 +1,9 @@
 import pytest
+from pathlib import Path
 from httpx import AsyncClient, ASGITransport
 from backend.main import app
 
-SAMPLE_DOCX_PATH = "test1/未修改.docx"
+SAMPLE_DOCX_PATH = Path(__file__).parents[2] / "test1" / "未修改.docx"
 
 
 @pytest.mark.asyncio

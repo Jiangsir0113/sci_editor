@@ -1,6 +1,5 @@
 import sys
 import os
-import uuid as _uuid
 
 # 确保能 import sci_editor（项目根目录）
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -10,7 +9,7 @@ if _ROOT not in sys.path:
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from sci_editor.parser import parse_document
 from sci_editor.engine import RuleEngine
-from backend.session import create_session, session_path, get_session
+from backend.session import create_session, session_path, get_session, delete_session
 from backend.schemas import UploadResponse, ParagraphOut
 
 router = APIRouter(prefix="/api")
@@ -38,7 +37,11 @@ async def upload(file: UploadFile = File(...)):
     with open(save_path, "wb") as f:
         f.write(content)
 
-    doc = parse_document(save_path)
+    try:
+        doc = parse_document(save_path)
+    except Exception as exc:
+        delete_session(doc_id)
+        raise HTTPException(422, f"Failed to parse document: {exc}") from exc
     get_session(doc_id)["doc"] = doc
 
     paragraphs = []

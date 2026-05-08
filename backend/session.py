@@ -8,6 +8,8 @@ _sessions: Dict[str, Dict[str, Any]] = {}
 TMP_DIR = os.path.join(tempfile.gettempdir(), "sci_editor_sessions")
 SESSION_TTL = 3600  # 1 小时
 
+os.makedirs(TMP_DIR, exist_ok=True)
+
 
 def create_session(filename: str) -> str:
     doc_id = str(uuid.uuid4())
@@ -29,7 +31,7 @@ def get_session(doc_id: str) -> Dict[str, Any]:
 
 
 def session_path(doc_id: str, filename: str) -> str:
-    return os.path.join(_sessions[doc_id]["dir"], filename)
+    return os.path.join(get_session(doc_id)["dir"], filename)
 
 
 def delete_session(doc_id: str) -> None:

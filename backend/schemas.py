@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 
 class ParagraphOut(BaseModel):
@@ -47,7 +47,7 @@ class CheckResponse(BaseModel):
 
 class Decision(BaseModel):
     issue_id: str
-    action: str          # "accept" | "reject" | "manual"
+    action: Literal["accept", "reject", "manual"]
     final_text: Optional[str] = None
 
 
