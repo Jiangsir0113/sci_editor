@@ -81,23 +81,29 @@ async def check(req: CheckRequest):
 
     issues = _engine.check(doc, rule_filter=req.rule_filter)
 
-    issues_out = []
-    for issue in issues:
-        issue_id = str(_uuid.uuid4())
-        issues_out.append(IssueOut(
-            issue_id=issue_id,
-            rule_id=issue.rule_id,
-            rule_name=issue.rule_name,
-            severity=issue.severity.value,
-            section=issue.section,
-            paragraph_index=issue.paragraph_index,
-            context=issue.context,
-            suggestion=issue.suggestion,
-            fixable=issue.fixable,
-            fix_description=issue.fix_description,
-        ))
+    # 先为每个 issue 分配 UUID，构建带 id 的列表
+    issues_with_ids = [
+        {"issue_id": str(_uuid.uuid4()), "issue": issue}
+        for issue in issues
+    ]
 
-    diff_raw = build_diff(doc, issues)
+    issues_out = [
+        IssueOut(
+            issue_id=item["issue_id"],
+            rule_id=item["issue"].rule_id,
+            rule_name=item["issue"].rule_name,
+            severity=item["issue"].severity.value,
+            section=item["issue"].section,
+            paragraph_index=item["issue"].paragraph_index,
+            context=item["issue"].context,
+            suggestion=item["issue"].suggestion,
+            fixable=item["issue"].fixable,
+            fix_description=item["issue"].fix_description,
+        )
+        for item in issues_with_ids
+    ]
+
+    diff_raw = build_diff(doc, issues_with_ids)
     diff_out = [DiffEntry(**d) for d in diff_raw]
 
     return CheckResponse(issues=issues_out, diff=diff_out)

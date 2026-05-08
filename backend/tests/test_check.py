@@ -36,6 +36,18 @@ async def test_check_returns_issues_and_diff():
         assert "original" in entry
         assert "modified" in entry
         assert "issue_ids" in entry
+    # 如果有 issues，验证每条的必要字段
+    for issue in data["issues"]:
+        assert "issue_id" in issue
+        assert "rule_id" in issue
+        assert "severity" in issue
+        assert "paragraph_index" in issue
+        assert "fixable" in issue
+    # 验证 diff 中的 issue_ids 都能在 issues 中找到对应条目
+    issue_id_set = {i["issue_id"] for i in data["issues"]}
+    for entry in data["diff"]:
+        for iid in entry["issue_ids"]:
+            assert iid in issue_id_set, f"diff.issue_id {iid} not found in issues"
 
 
 @pytest.mark.asyncio
