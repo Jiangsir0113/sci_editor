@@ -16,8 +16,34 @@ function sanitize(html: string): string {
 export default function EditablePanel({ paragraphIndex, htmlContent, isActive }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const { setDecision, issues } = useEditorStore()
+  const isActiveRef = useRef(isActive)
+  isActiveRef.current = isActive
 
   const relatedIssues = issues.filter((i) => i.paragraph_index === paragraphIndex)
+
+  // 只在非编辑状态下同步 DOM 内容（避免覆盖用户编辑中的内容）
+  useEffect(() => {
+    if (!isActiveRef.current && ref.current) {
+      ref.current.innerHTML = sanitize(htmlContent)
+    }
+  }, [htmlContent])
+
+  // isActive 变化时：激活时 focus，关闭时同步最新 htmlContent
+  useEffect(() => {
+    if (!ref.current) return
+    if (isActive) {
+      ref.current.focus()
+    } else {
+      ref.current.innerHTML = sanitize(htmlContent)
+    }
+  }, [isActive]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 初始渲染：设置内容
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.innerHTML = sanitize(htmlContent)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleBlur() {
     if (!ref.current || relatedIssues.length === 0) return
@@ -26,19 +52,6 @@ export default function EditablePanel({ paragraphIndex, htmlContent, isActive }:
       setDecision(issue.issue_id, 'manual', text)
     })
   }
-
-  useEffect(() => {
-    if (isActive && ref.current) {
-      ref.current.focus()
-    }
-  }, [isActive])
-
-  // 当 isActive 变为 false 时，同步 htmlContent 到 DOM（避免编辑后残留状态）
-  useEffect(() => {
-    if (!isActive && ref.current) {
-      ref.current.innerHTML = sanitize(htmlContent)
-    }
-  }, [isActive, htmlContent])
 
   return (
     <div
@@ -49,7 +62,6 @@ export default function EditablePanel({ paragraphIndex, htmlContent, isActive }:
       className={`p-2 text-sm leading-relaxed outline-none transition-colors min-h-[1.5rem] ${
         isActive ? 'bg-gray-800 ring-1 ring-blue-500 rounded cursor-text' : 'cursor-default'
       }`}
-      dangerouslySetInnerHTML={{ __html: sanitize(htmlContent) }}
     />
   )
 }
